@@ -1,0 +1,67 @@
+
+- name: Pre-Flight powershell command to check if UIM Windows Robot service is installed
+  win_shell: (Get-Service NimbusWatcherService -ErrorAction SilentlyContinue)
+  register: Nimbus_srv_result
+
+- name: debug Nimbus_srv_result.stdout_lines
+  debug:
+    msg: "{{ Nimbus_srv_result.stdout_lines }}"
+
+- name: get the windows IP address
+  win_shell: (Get-NetIPAddress -AddressState Preferred -AddressFamily IPv4 -InterfaceAlias Ethernet0 -SkipAsSource $False | select -Property IPAddress).IPAddress
+  register: ip_result
+
+- name: debug IP from Ethernet0 in var ip_result
+  debug:
+    msg: "{{ ip_result.stdout_lines }}"
+
+- name: Set_fact of last octet of the Ethernet0 ip address (ip_result)
+  set_fact: octet_fact={{ ip_result.stdout.split('.')[-1] | trim }} 
+
+- name: Echo the octet_fact
+  debug:
+    msg: "The last octet of the Ethernet0 IP is {{ octet_fact }}"
+
+- name: Work out if octet_fact is odd or even
+  debug:
+    msg: "{% if (octet_fact|int) is even %} number {{ octet_fact }} is even {% else %} number {{ octet_fact }} is odd {% endif %}"
+
+- name: CA UIM Windows Robot package, checksum, unzip, install and enable
+  block:
+
+    - win_get_url:
+        url: "{{ win_uim_robot_pkg_url }}"
+        dest: 'C:\Users\oa_ansible\{{ win_uim_robot_pkg }}'
+        checksum: sha256:{{ linux_uim_robot_pkg_chksum }}
+
+    - win_template:
+        src: 'nms-robot-vars.cfg.j2'
+        dest: 'C:\Users\oa_ansible\nms-robot-vars.cfg' 
+
+    - win_package:
+        path: 'C:\Users\oa_ansible\{{ win_uim_robot_pkg }}'
+        product_id: "{{ win_robot_pkg_productcode }}"
+        arguments: 
+          - /VERYSILENT 
+          - /SUPPRESSMSGBOXES 
+          - /NORESTART
+
+    - win_lineinfile:
+        path: "{{ ansible_env.ProgramFiles }}\\nimsoft\\robot\\{{ win_uim_robot_config }}"
+        line: 'Robotip = {{ ansible_fqdn }}'
+        state: present
+        insertafter: EOF
+
+    - win_service:
+        name: "NimbusWatcherService"
+        path:  "{{ ansible_env.ProgramFiles }}\\nimsoft\\bin\\nimbus.exe"
+        enabled: true
+        state: restarted
+      register: NimbusWatcherService_status
+
+    - debug:
+        msg: 'The NimbusWatcherService is now {{ NimbusWatcherService_status.state }}'
+
+  when: Nimbus_srv_result.stdout == ""
+
+

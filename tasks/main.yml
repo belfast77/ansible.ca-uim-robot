@@ -1,0 +1,17 @@
+---
+# tasks file for ca-uim-robot
+- name: Install CA UIM Agent (detected OS) '{{ ansible_os_family }}'
+  vars:
+    task_file: "{{ lookup('first_found', params) }}"
+    params:
+      files:
+        - '{{ ansible_os_family }}{{ ansible_distribution_major_version }}.yml'
+        - '{{ ansible_os_family }}.yml'
+      skip: true
+  block:
+  - include_tasks: "{{ task_file }}"
+    when: task_file != []
+  - debug:
+      msg: '[WARNING] {{ ansible_os_family }} is not currently supported'
+    when: task_file == []
+

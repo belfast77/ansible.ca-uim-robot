@@ -1,0 +1,21 @@
+domain={{ robot_domain | mandatory }} 
+
+hub={% if (octet_fact|int) is even %}{{ secondary_robot_hub }}{% else %}{{ robot_hub }} {% endif %} 
+
+hubip={% if (octet_fact|int) is even %}{{ secondary_robot_hubip }}{% else %}{{ robot_hubip }} {% endif %} 
+
+hubrobotname={% if (octet_fact|int) is even %}{{ secondary_robot_hubrobotname }}{% else %}{{ robot_hubrobotname }} {% endif %} 
+
+hubport={{ robot_hubport | mandatory }} 
+
+secondary_hub={% if (octet_fact|int) is even %}{{ robot_hub }}{% else %}{{ secondary_robot_hub }} {% endif %} 
+
+secondary_hubip={% if (octet_fact|int) is even %}{{ robot_hubip }}{% else %}{{ secondary_robot_hubip }} {% endif %} 
+
+secondary_hubrobotname={% if (octet_fact|int) is even %}{{ robot_hubrobotname }}{% else %}{{ secondary_robot_hubrobotname }} {% endif %} 
+
+secondary_hubport={{ secondary_robot_hubport | mandatory }} 
+
+temporary_hub_broadcast=no
+
+robotname={{ ansible_fqdn }}

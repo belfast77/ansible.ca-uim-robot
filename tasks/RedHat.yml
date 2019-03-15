@@ -1,0 +1,60 @@
+- name: Get the service facts for the target server
+  service_facts:
+
+- debug: 
+    msg: CA UIM linux Robot is already installed
+  when: "'nimbus' in services"
+
+- name: Set_fact of last octet of the ansible_default_ipv4.address
+  set_fact: octet_fact={{ ansible_default_ipv4.address.split('.')[-1] }}
+
+- name: Echo the octet_fact
+  debug:
+    msg: "The last octet of the ansible_default_ipv4.address is {{ octet_fact }}"
+
+- name: Work out if octet_fact is odd or even
+  debug:
+    msg: "{% if (octet_fact|int) is even %} number {{ octet_fact }} is even {% else %} number {{ octet_fact }} is odd {% endif %}"
+
+- name: CA UIM linux Robot package, checksum, unzip, install and enable
+  block:
+    - get_url:
+        url: "{{ linux_uim_robot_pkg_url }}"
+        dest: '/usr/local/src/{{ linux_uim_robot_pkg }}'
+        checksum: sha256:{{ linux_uim_robot_pkg_chksum }}
+
+    - yum: 
+        name: '/usr/local/src/{{ linux_uim_robot_pkg }}'
+        state: present
+
+    - template:
+        src: 'nms-robot-vars.cfg.j2' 
+        dest: '/opt/{{ linux_uim_robot_config }}'
+        owner: 'root'
+        group: 'root'
+        mode: 0644
+
+    - shell: '/opt/nimsoft/install/RobotConfigurer.sh'
+      become: true
+      become_user: root
+      args:
+        executable: /bin/bash
+
+    - lineinfile:
+        path: '/opt/nimsoft/robot/robot.cfg'
+        line: 'Robotip = {{ ansible_fqdn }}'
+        state: present
+        insertafter: EOF
+
+    - shell: '/opt/nimsoft/bin/niminit start'
+      become: true
+      become_user: root
+      args:
+        executable: /bin/bash
+
+    - service:
+        name: "nimbus"
+        enabled: true
+        state: started
+  when: "'nimbus' not in services"
+
